@@ -93,8 +93,25 @@ if model is None:
     st.error("⚠️ Erreur : Les fichiers `.pkl` sont introuvables. Vérifiez qu'ils sont bien dans le même dossier que app.py")
 else:
     # Zone de saisie
-    user_input = st.text_area("Copiez un avis client ici (en anglais) :", height=100, placeholder="Example: The delivery was very fast but the product quality is poor...")
+    # --- GESTION DES EXEMPLES ---
+    if "text_input" not in st.session_state:
+    st.session_state.text_input = ""
 
+    def set_text(text):
+    st.session_state.text_input = text
+
+    st.markdown("### 📝 Testez avec vos propres phrases ou utilisez un exemple :")
+
+    col_ex1, col_ex2, col_ex3 = st.columns(3)
+    with col_ex1:
+    st.button("😡 Exemple Négatif", on_click=set_text, args=["Horrible service, I waited 2 weeks and the package is broken. Never again!"])
+    with col_ex2:
+    st.button("😐 Exemple Neutre", on_click=set_text, args=["The product is okay but shipping was a bit slow. Not bad, not great."])
+    with col_ex3:
+    st.button("😍 Exemple Positif", on_click=set_text, args=["Absolutely amazing! Best purchase of the year, highly recommended."])
+
+# Zone de saisie liée au bouton
+user_input = st.text_area("Votre commentaire :", value=st.session_state.text_input, height=100)
     if st.button("Lancer l'analyse", type="primary"):
         if user_input.strip():
             with st.spinner('Nettoyage et analyse en cours...'):
@@ -149,4 +166,5 @@ else:
 
 # Footer
 st.markdown("---")
+
 st.caption("Projet École - Modèle LightGBM + TF-IDF")
