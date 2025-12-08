@@ -174,40 +174,101 @@ else:
         else:
             st.warning("Veuillez entrer du texte.")
 
-st.markdown("---")
-
-st.divider()
-st.header("📂 Analyse de masse (Fichier CSV)")
-
-uploaded_file = st.file_uploader("Déposez un fichier CSV contenant une colonne 'text'", type=["csv"])
-
-if uploaded_file is not None:
-    df_upload = pd.read_csv(uploaded_file)
+# === SECTION 2 : ANALYSE DE MASSE (CSV) ===
+    st.markdown("---")
+    st.subheader("2. Analyse de masse (Fichier CSV) 📂")
     
-    # Vérification qu'il y a du texte
-    if 'text' in df_upload.columns:
-        if st.button("Lancer l'analyse du fichier"):
-            with st.spinner("Analyse de tous les avis..."):
-                # On applique le nettoyage et la prédiction
-                # Attention : Pour aller vite, on ne fait pas de boucle, on vectorise tout d'un coup
-                # (Nécessite d'adapter légèrement ta pipeline pour accepter une Série pandas, 
-                # ou alors faire une boucle simple apply)
-                
-                df_upload['clean_text'] = df_upload['text'].apply(processing_pipeline)
-                vec_bulk = vectorizer.transform(df_upload['clean_text'])
-                predictions = model.predict(vec_bulk) # Donne 0, 1, 2
-                
-                # Mapping pour rendre ça lisible
-                map_dict = {0: "Négatif", 1: "Neutre", 2: "Positif"}
-                df_upload['Prediction'] = [map_dict[p] for p in predictions]
-                
-                st.success("Analyse terminée !")
-                st.dataframe(df_upload[['text', 'Prediction']].head())
-                
-                # Bouton de téléchargement
-                csv = df_upload.to_csv(index=False).encode('utf-8')
-                st.download_button("Télécharger les résultats", csv, "resultats_trustpilot.csv", "text/csv")
-    else:
-        st.error("Le fichier CSV doit contenir une colonne nommée 'text'.")
+    # --- 💡 AMÉLIORATION UX : Instructions claires ---
+    st.markdown("""
+    **Comment ça marche ?**
+    1. Téléchargez le modèle ci-dessous.
+    2. Ajoutez vos avis dans la colonne **'text'**.
+    3. Déposez le fichier ici.
+    """)
+
+    # Création d'un CSV exemple en mémoire pour le téléchargement
+    csv_template = "text\nExemple: Super produit !\nExemple: Livraison trop longue..."
+    
+    st.download_button(
+        label="📥 Télécharger le modèle CSV vide",
+        data=csv_template,
+        file_name="modele_avis.csv",
+        mime="text/csv",
+        help="Cliquez pour obtenir un fichier Excel/CSV prêt à remplir"
+    )
+
+    st.warning("⚠️ Important : Votre fichier doit avoir une colonne nommée **'text'**, **'review'** ou **'comment'**.")
+
+    # --- Upload du fichier ---
+    uploaded_file = st.file_uploader("Déposez votre fichier rempli ici", type=["csv"])
+
+    if uploaded_file is not None:
+        try:
+            # Le reste du code reste identique...
+            df = pd.read_csv(uploaded_file)
+            
+            # Recherche intelligente de la colonne texte
+            possible_cols = [c for c in df.columns if 'text' in c.lower() or 'review' in c.lower() or 'comment' in c.lower()]
+            
+            if not possible_cols:
+                st.error(f"❌ Erreur : Colonne texte introuvable. Colonnes vues : {list(df.columns)}")
+                st.info("Conseil : Renommez votre colonne d'avis en 'text' dans Excel.")
+            else:
+                target_col = possible_cols[0]
+                st.success(f"✅ Colonne détectée : **{target_col}** ({len(df)} lignes)")
+
+                if st.button(f"Lancer l'analyse sur les {len(df)} avis", type="primary"):
+                    with st.spinner("Traitement en cours..."):
+                        progress_bar = st.progress(0)
+                        
+                        # 1. Nettoyage
+                        df['clean_text'] = df[target_col].astype(str).apply(processing_pipeline)
+                        progress_bar.progress(30)
+                        
+                        # 2. Vectorisation
+                        vec_bulk = vectorizer.transform(df['clean_text'])
+                        progress_bar.progress(60)
+                        
+                        # 3. Prédiction
+                        # Utilisation de toarray() pour éviter le warning
+                        preds = model.predict(vec_bulk.toarray())
+                        progress_bar.progress(90)
+                        
+                        # 4. Mapping
+                        label_map = {0: "Négatif", 1: "Neutre", 2: "Positif"}
+                        df['Prediction_IA'] = [label_map[p] for p in preds]
+                        
+                        progress_bar.progress(100)
+                        
+                        # Affichage résultats
+                        st.balloons()
+                        st.write("### 📊 Résultats de l'analyse :")
+                        
+                        # Colorer le tableau
+                        def color_pred(val):
+                            color = '#ffcccc' if val == 'Négatif' else '#ccffcc' if val == 'Positif' else '#ffeebb'
+                            return f'background-color: {color}'
+
+                        st.dataframe(df[[target_col, 'Prediction_IA']].head(10).style.applymap(color_pred, subset=['Prediction_IA']), use_container_width=True)
+
+                        # Statistique rapide
+                        col_stat1, col_stat2 = st.columns(2)
+                        with col_stat1:
+                            st.write("#### Répartition :")
+                            st.bar_chart(df['Prediction_IA'].value_counts())
+                        
+                        with col_stat2:
+                             st.write("#### Export :")
+                             csv_result = df.to_csv(index=False).encode('utf-8')
+                             st.download_button(
+                                label="📥 Télécharger les résultats complets",
+                                data=csv_result,
+                                file_name="resultats_trustpilot.csv",
+                                mime="text/csv"
+                            )
+
+        except Exception as e:
+            st.error(f"Une erreur est survenue : {e}")
+
 
 
