@@ -176,3 +176,37 @@ else:
 
 st.markdown("---")
 
+st.divider()
+st.header("📂 Analyse de masse (Fichier CSV)")
+
+uploaded_file = st.file_uploader("Déposez un fichier CSV contenant une colonne 'text'", type=["csv"])
+
+if uploaded_file is not None:
+    df_upload = pd.read_csv(uploaded_file)
+    
+    # Vérification qu'il y a du texte
+    if 'text' in df_upload.columns:
+        if st.button("Lancer l'analyse du fichier"):
+            with st.spinner("Analyse de tous les avis..."):
+                # On applique le nettoyage et la prédiction
+                # Attention : Pour aller vite, on ne fait pas de boucle, on vectorise tout d'un coup
+                # (Nécessite d'adapter légèrement ta pipeline pour accepter une Série pandas, 
+                # ou alors faire une boucle simple apply)
+                
+                df_upload['clean_text'] = df_upload['text'].apply(processing_pipeline)
+                vec_bulk = vectorizer.transform(df_upload['clean_text'])
+                predictions = model.predict(vec_bulk) # Donne 0, 1, 2
+                
+                # Mapping pour rendre ça lisible
+                map_dict = {0: "Négatif", 1: "Neutre", 2: "Positif"}
+                df_upload['Prediction'] = [map_dict[p] for p in predictions]
+                
+                st.success("Analyse terminée !")
+                st.dataframe(df_upload[['text', 'Prediction']].head())
+                
+                # Bouton de téléchargement
+                csv = df_upload.to_csv(index=False).encode('utf-8')
+                st.download_button("Télécharger les résultats", csv, "resultats_trustpilot.csv", "text/csv")
+    else:
+        st.error("Le fichier CSV doit contenir une colonne nommée 'text'.")
+
