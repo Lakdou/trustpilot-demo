@@ -73,9 +73,9 @@ with st.sidebar:
     st.header("🔍 Infos du Modèle")
     st.info("Modèle : LightGBM + TF-IDF")
     st.write("Entraîné sur ~130k avis.")
-    st.metric(label="Précision (Accuracy)", value="89.4%") # Mets ta vraie valeur ici si tu l'as
+    st.metric(label="Précision (Accuracy)", value="71.8%") # Mets ta vraie valeur ici si tu l'as
     st.markdown("---")
-    st.caption("Projet École - Analyse de Sentiment")
+    st.caption("DataScientest- Trust Pilot - Analyse de Sentiment")
 
 # --- 4. INTERFACE PRINCIPALE ---
 st.title("🛍️ Analyse d'Avis Trustpilot")
@@ -209,4 +209,5 @@ if uploaded_file is not None:
                 st.download_button("Télécharger les résultats", csv, "resultats_trustpilot.csv", "text/csv")
     else:
         st.error("Le fichier CSV doit contenir une colonne nommée 'text'.")
+
 
