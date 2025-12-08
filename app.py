@@ -8,6 +8,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import warnings
+import altair as alt  # Importé ici pour être dispo partout
 
 # --- 0. CONFIGURATION & NETTOYAGE CONSOLE ---
 st.set_page_config(
@@ -73,9 +74,9 @@ with st.sidebar:
     st.header("🔍 Infos du Modèle")
     st.info("Modèle : LightGBM + TF-IDF")
     st.write("Entraîné sur ~130k avis.")
-    st.metric(label="Précision (Accuracy)", value="71.8%") # Mets ta vraie valeur ici si tu l'as
+    st.metric(label="Précision (Accuracy)", value="71.8%")
     st.markdown("---")
-    st.caption("DataScientest- Trust Pilot - Analyse de Sentiment")
+    st.caption("DataScientest - Trust Pilot - Analyse de Sentiment")
 
 # --- 4. INTERFACE PRINCIPALE ---
 st.title("🛍️ Analyse d'Avis Trustpilot")
@@ -88,7 +89,6 @@ if model is None:
     st.error("⚠️ Erreur : Fichiers .pkl introuvables. Vérifiez le dossier.")
 else:
     # --- GESTION DES BOUTONS EXEMPLES ---
-    # On initialise la variable de session si elle n'existe pas
     if "text_input" not in st.session_state:
         st.session_state.text_input = ""
 
@@ -97,7 +97,6 @@ else:
 
     st.markdown("### 📝 Testez avec vos propres phrases ou utilisez un exemple :")
 
-    # Les 3 colonnes pour les boutons
     col1, col2, col3 = st.columns(3)
     with col1:
         st.button("😡 Négatif", on_click=set_text, args=["Horrible service, I waited 2 weeks and the package is broken. Never again!"], use_container_width=True)
@@ -106,26 +105,23 @@ else:
     with col3:
         st.button("😍 Positif", on_click=set_text, args=["Absolutely amazing! Best purchase of the year, highly recommended."], use_container_width=True)
 
-    # Zone de texte (liée à la session state pour réagir aux boutons)
+    # Zone de texte
     user_input = st.text_area("Votre commentaire :", value=st.session_state.text_input, height=100)
 
-    # --- BOUTON DE PRÉDICTION ---
+    # --- BOUTON DE PRÉDICTION UNITAIRE ---
     if st.button("Lancer l'analyse", type="primary"):
         if user_input.strip():
             with st.spinner('Analyse en cours...'):
                 
-                # 1. Nettoyage
+                # 1. Nettoyage & Vectorisation
                 clean_text = processing_pipeline(user_input)
-                
-                # 2. Vectorisation
                 vec_input = vectorizer.transform([clean_text])
                 
-                # 3. Prédiction (avec suppression des warnings features)
-                # On utilise toarray() pour éviter le warning LightGBM
+                # 2. Prédiction
                 pred_class = model.predict(vec_input.toarray())[0]
                 pred_proba = model.predict_proba(vec_input.toarray())[0]
                 
-                # 4. Mapping Résultats
+                # 3. Mapping
                 labels = {
                     0: ("Négatif 😞", "red"),
                     1: ("Neutre 😐", "orange"),
@@ -134,7 +130,7 @@ else:
                 label_text, color = labels[pred_class]
                 confidence = pred_proba[pred_class]
 
-                # 5. Affichage
+                # 4. Affichage
                 st.divider()
                 c1, c2 = st.columns([1, 2])
                 
@@ -145,28 +141,18 @@ else:
                 
                 with c2:
                     st.markdown("#### Probabilités")
-                    chart_data = pd.DataFrame(
-                        pred_proba.reshape(1, 3), 
-                        columns=["Négatif", "Neutre", "Positif"]
-                    )
-                    # Remplacer st.bar_chart par ceci pour avoir les couleurs :
-                    import altair as alt
-
-                   # On prépare les données proprement
                     df_chart = pd.DataFrame({
                         "Sentiment": ["Négatif", "Neutre", "Positif"],
                         "Probabilité": pred_proba,
-                        "Couleur": ["#FF4B4B", "#FFA500", "#008000"]  # Rouge, Orange, Vert
+                        "Couleur": ["#FF4B4B", "#FFA500", "#008000"]
                     })
-
-                    # On crée le graph
+                    
                     c = alt.Chart(df_chart).mark_bar().encode(
                         x=alt.X('Sentiment', sort=None),
                         y='Probabilité',
                         color=alt.Color('Sentiment', scale=alt.Scale(domain=["Négatif", "Neutre", "Positif"], range=["#FF4B4B", "#FFA500", "#008000"]), legend=None),
                         tooltip=['Sentiment', 'Probabilité']
                     )
-                    
                     st.altair_chart(c, use_container_width=True)
 
                 with st.expander("👀 Voir le texte nettoyé par l'IA"):
@@ -174,11 +160,10 @@ else:
         else:
             st.warning("Veuillez entrer du texte.")
 
-# === SECTION 2 : ANALYSE DE MASSE (CSV) ===
+    # === SECTION 2 : ANALYSE DE MASSE (CSV) ===
     st.markdown("---")
     st.subheader("2. Analyse de masse (Fichier CSV) 📂")
     
-    # --- 💡 AMÉLIORATION UX : Instructions claires ---
     st.markdown("""
     **Comment ça marche ?**
     1. Téléchargez le modèle ci-dessous.
@@ -186,28 +171,22 @@ else:
     3. Déposez le fichier ici.
     """)
 
-    # Création d'un CSV exemple en mémoire pour le téléchargement
     csv_template = "text\nExemple: Super produit !\nExemple: Livraison trop longue..."
-    
     st.download_button(
         label="📥 Télécharger le modèle CSV vide",
         data=csv_template,
         file_name="modele_avis.csv",
-        mime="text/csv",
-        help="Cliquez pour obtenir un fichier Excel/CSV prêt à remplir"
+        mime="text/csv"
     )
 
     st.warning("⚠️ Important : Votre fichier doit avoir une colonne nommée **'text'**, **'review'** ou **'comment'**.")
 
-    # --- Upload du fichier ---
     uploaded_file = st.file_uploader("Déposez votre fichier rempli ici", type=["csv"])
 
     if uploaded_file is not None:
         try:
-            # Le reste du code reste identique...
             df = pd.read_csv(uploaded_file)
             
-            # Recherche intelligente de la colonne texte
             possible_cols = [c for c in df.columns if 'text' in c.lower() or 'review' in c.lower() or 'comment' in c.lower()]
             
             if not possible_cols:
@@ -221,40 +200,53 @@ else:
                     with st.spinner("Traitement en cours..."):
                         progress_bar = st.progress(0)
                         
-                        # 1. Nettoyage
                         df['clean_text'] = df[target_col].astype(str).apply(processing_pipeline)
                         progress_bar.progress(30)
                         
-                        # 2. Vectorisation
                         vec_bulk = vectorizer.transform(df['clean_text'])
                         progress_bar.progress(60)
                         
-                        # 3. Prédiction
-                        # Utilisation de toarray() pour éviter le warning
                         preds = model.predict(vec_bulk.toarray())
                         progress_bar.progress(90)
                         
-                        # 4. Mapping
                         label_map = {0: "Négatif", 1: "Neutre", 2: "Positif"}
                         df['Prediction_IA'] = [label_map[p] for p in preds]
                         
                         progress_bar.progress(100)
                         
-                        # Affichage résultats
                         st.balloons()
                         st.write("### 📊 Résultats de l'analyse :")
                         
+                        # --- 💡 AJOUT : FILTRE INTERACTIF ---
+                        st.write("🔎 **Filtrer les résultats :**")
+                        filter_option = st.radio(
+                            "Afficher :",
+                            ["Tout voir", "Négatif", "Neutre", "Positif"],
+                            horizontal=True
+                        )
+
+                        if filter_option == "Négatif":
+                            df_display = df[df['Prediction_IA'] == "Négatif"]
+                        elif filter_option == "Neutre":
+                            df_display = df[df['Prediction_IA'] == "Neutre"]
+                        elif filter_option == "Positif":
+                            df_display = df[df['Prediction_IA'] == "Positif"]
+                        else:
+                            df_display = df
+
+                        st.caption(f"{len(df_display)} avis affichés.")
+
                         # Colorer le tableau
                         def color_pred(val):
                             color = '#ffcccc' if val == 'Négatif' else '#ccffcc' if val == 'Positif' else '#ffeebb'
                             return f'background-color: {color}'
 
-                        st.dataframe(df[[target_col, 'Prediction_IA']].head(10).style.applymap(color_pred, subset=['Prediction_IA']), use_container_width=True)
+                        st.dataframe(df_display[[target_col, 'Prediction_IA']].style.applymap(color_pred, subset=['Prediction_IA']), use_container_width=True)
 
-                        # Statistique rapide
+                        # Statistique et Export
                         col_stat1, col_stat2 = st.columns(2)
                         with col_stat1:
-                            st.write("#### Répartition :")
+                            st.write("#### Répartition globale :")
                             st.bar_chart(df['Prediction_IA'].value_counts())
                         
                         with col_stat2:
@@ -270,5 +262,26 @@ else:
         except Exception as e:
             st.error(f"Une erreur est survenue : {e}")
 
+# --- 💡 AJOUT : SECTION EXPLICABILITÉ (BAS DE PAGE) ---
+st.markdown("---")
+with st.expander("🧠 Comprendre comment l'IA décide (Interprétabilité)"):
+    st.write("""
+    Ce modèle ne devine pas au hasard. Il a appris à associer certains mots à des scores.
+    Voici les mots qui ont le plus d'impact statistique sur la décision :
+    """)
+    
+    col_img1, col_img2 = st.columns(2)
+    
+    with col_img1:
+        st.error("📉 Mots qui rendent un avis NÉGATIF")
+        # Si tu as une image 'wordcloud_negatif.png', décommente :
+        # st.image("wordcloud_negatif.png")
+        st.markdown("- **Service :** rude, ignored, horrible, useless")
+        st.markdown("- **Produit :** broken, waste, scam, never")
 
-
+    with col_img2:
+        st.success("📈 Mots qui rendent un avis POSITIF")
+        # Si tu as une image 'wordcloud_positif.png', décommente :
+        # st.image("wordcloud_positif.png")
+        st.markdown("- **Service :** fast, amazing, helpful, thanks")
+        st.markdown("- **Produit :** love, best, recommend, perfect")
