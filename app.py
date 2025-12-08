@@ -144,7 +144,6 @@ else:
                     df_chart = pd.DataFrame({
                         "Sentiment": ["Négatif", "Neutre", "Positif"],
                         "Probabilité": pred_proba,
-                        # Négatif (Gris foncé), Neutre (Rose pâle), Positif (Rose très vif)
                         "Couleur": ["#6D6D6D", "#FFB7B2", "#FF69B4"]
                     })
                     
@@ -286,3 +285,4 @@ with st.expander("🧠 Comprendre comment l'IA décide (Interprétabilité)"):
         # st.image("wordcloud_positif.png")
         st.markdown("- **Service :** fast, amazing, helpful, thanks")
         st.markdown("- **Produit :** love, best, recommend, perfect")
+
