@@ -149,7 +149,25 @@ else:
                         pred_proba.reshape(1, 3), 
                         columns=["Négatif", "Neutre", "Positif"]
                     )
-                    st.bar_chart(chart_data.T, color=["#FF4B4B", "#FFA500", "#008000"]) # Couleurs custom optionnelles
+                    # Remplacer st.bar_chart par ceci pour avoir les couleurs :
+                    import altair as alt
+
+                   # On prépare les données proprement
+                    df_chart = pd.DataFrame({
+                        "Sentiment": ["Négatif", "Neutre", "Positif"],
+                        "Probabilité": pred_proba,
+                        "Couleur": ["#FF4B4B", "#FFA500", "#008000"]  # Rouge, Orange, Vert
+                    })
+
+                    # On crée le graph
+                    c = alt.Chart(df_chart).mark_bar().encode(
+                        x=alt.X('Sentiment', sort=None),
+                        y='Probabilité',
+                        color=alt.Color('Sentiment', scale=alt.Scale(domain=["Négatif", "Neutre", "Positif"], range=["#FF4B4B", "#FFA500", "#008000"]), legend=None),
+                        tooltip=['Sentiment', 'Probabilité']
+                    )
+                    
+                    st.altair_chart(c, use_container_width=True)
 
                 with st.expander("👀 Voir le texte nettoyé par l'IA"):
                     st.code(clean_text)
@@ -157,3 +175,4 @@ else:
             st.warning("Veuillez entrer du texte.")
 
 st.markdown("---")
+
