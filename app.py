@@ -144,7 +144,8 @@ else:
                     df_chart = pd.DataFrame({
                         "Sentiment": ["Négatif", "Neutre", "Positif"],
                         "Probabilité": pred_proba,
-                        "Couleur": ["#FF4B4B", "#FFA500", "#008000"]
+                        # Négatif (Gris foncé), Neutre (Rose pâle), Positif (Rose très vif)
+                        "Couleur": ["#6D6D6D", "#FFB7B2", "#FF69B4"]
                     })
                     
                     c = alt.Chart(df_chart).mark_bar().encode(
