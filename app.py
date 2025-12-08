@@ -141,16 +141,20 @@ else:
                 
                 with c2:
                     st.markdown("#### Probabilités")
+                    # Préparation des données
                     df_chart = pd.DataFrame({
                         "Sentiment": ["Négatif", "Neutre", "Positif"],
-                        "Probabilité": pred_proba,
-                        "Couleur": ["#6D6D6D", "#FFB7B2", "#FF69B4"]
+                        "Probabilité": pred_proba
                     })
                     
+                    # Graphique avec tes couleurs Cherry Blossom
                     c = alt.Chart(df_chart).mark_bar().encode(
                         x=alt.X('Sentiment', sort=None),
                         y='Probabilité',
-                        color=alt.Color('Sentiment', scale=alt.Scale(domain=["Négatif", "Neutre", "Positif"], range=["#FF4B4B", "#FFA500", "#008000"]), legend=None),
+                        color=alt.Color('Sentiment', scale=alt.Scale(
+                            domain=["Négatif", "Neutre", "Positif"], 
+                            range=["#6D6D6D", "#FFB7B2", "#FF69B4"]  # <--- C'est ICI que ça se joue !
+                        ), legend=None),
                         tooltip=['Sentiment', 'Probabilité']
                     )
                     st.altair_chart(c, use_container_width=True)
@@ -285,4 +289,5 @@ with st.expander("🧠 Comprendre comment l'IA décide (Interprétabilité)"):
         # st.image("wordcloud_positif.png")
         st.markdown("- **Service :** fast, amazing, helpful, thanks")
         st.markdown("- **Produit :** love, best, recommend, perfect")
+
 
