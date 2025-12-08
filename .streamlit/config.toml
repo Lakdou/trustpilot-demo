@@ -1,0 +1,15 @@
+[theme]
+# Couleur principale (Boutons, curseurs, liens) - Rose Sakura vif
+primaryColor = "#FF85A2"
+
+# Couleur de fond générale - Rose très pâle (presque blanc)
+backgroundColor = "#FFF0F5"
+
+# Couleur de fond de la barre latérale - Rose brumeux
+secondaryBackgroundColor = "#FFE4E1"
+
+# Couleur du texte - Gris foncé (pour que ça reste lisible)
+textColor = "#4F4F4F"
+
+# Police d'écriture (Optionnel, "sans serif" fait plus moderne)
+font = "sans serif"
