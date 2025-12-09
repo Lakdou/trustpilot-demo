@@ -229,8 +229,6 @@ with tab_data:
         })
         st.dataframe(metrics_df, hide_index=True, use_container_width=True)
         
-        st.warning("⚠️ **Choix forts :** Suppression de la variable 'Prix' (trop de valeurs manquantes) et imputation des votes vides à 0.")
-
 
 
 # ==============================================================================
@@ -295,4 +293,5 @@ with tab_model:
         st.success("📈 Mots Positifs")
         st.write("- **great, love, good, easy, perfect**")
         st.caption("Indiquent une satisfaction émotionnelle forte.")
+
 
