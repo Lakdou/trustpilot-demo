@@ -231,15 +231,7 @@ with tab_data:
         
         st.warning("⚠️ **Choix forts :** Suppression de la variable 'Prix' (trop de valeurs manquantes) et imputation des votes vides à 0.")
 
-    st.markdown("---")
-    st.subheader("Distribution des classes (Après rééquilibrage)")
-    # On simule les données du rapport
-    chart_data = pd.DataFrame({
-        "Sentiment": ["Négatif", "Neutre", "Positif"],
-        "Nombre d'avis": [190983, 190983, 190983] 
-    })
-    st.bar_chart(chart_data.set_index("Sentiment"))
-    st.caption("Le dataset a été rééchantillonné (Undersampling) pour éviter que le modèle ne favorise la classe majoritaire (5 étoiles).")
+
 
 # ==============================================================================
 # ONGLET 3 : PERFORMANCES MODÈLE (Infos du rapport)
@@ -303,3 +295,4 @@ with tab_model:
         st.success("📈 Mots Positifs")
         st.write("- **great, love, good, easy, perfect**")
         st.caption("Indiquent une satisfaction émotionnelle forte.")
+
