@@ -222,6 +222,7 @@ with tab_data:
         st.markdown("### Volumétrie & Nettoyage")
         st.write("Pour garantir la qualité du modèle, nous avons appliqué un preprocessing strict :")
         
+        # Données fictives basées sur ton rapport pour l'affichage
         metrics_df = pd.DataFrame({
             "Métrique": ["Avis bruts", "Avis après nettoyage", "Classes"],
             "Valeur": ["~1.2 Millions", "572 950", "3 (Équilibrées)"]
@@ -230,48 +231,14 @@ with tab_data:
         
         st.warning("⚠️ **Choix forts :** Suppression de la variable 'Prix' (trop de valeurs manquantes) et imputation des votes vides à 0.")
 
-    # --- AJOUT : APERÇU DU DATASET ---
-    st.divider()
-    st.subheader("📋 Aperçu des données brutes")
-    st.write("Voici un extrait type des colonnes utilisées pour l'entraînement (avant nettoyage) :")
-
-    # Création d'un faux dataset représentatif pour l'affichage
-    example_data = {
-        "overall": [5, 1, 3, 5, 2],
-        "summary": ["Amazing sound", "Waste of money", "Average", "Great service", "Disappointed"],
-        "reviewText": [
-            "This headphone is amazing! The bass is deep and clear.",
-            "Stopped working after one week. Terrible quality.",
-            "It's okay for the price, but the battery life is short.",
-            "Fast delivery and the product works perfectly. Recommended.",
-            "Not what I expected. The screen resolution is poor."
-        ],
-        "brand": ["Bose", "Generic", "Sony", "Samsung", "LG"],
-        "main_cat": ["Headphones", "Accessories", "Camera", "Computers", "Television"]
-    }
-    df_example = pd.DataFrame(example_data)
-    
-    # Affichage interactif
-    st.dataframe(df_example, use_container_width=True)
-    st.caption("Les variables principales sont le texte (reviewText + summary) et la note (overall).")
-
     st.markdown("---")
     st.subheader("Distribution des classes (Après rééquilibrage)")
-    
+    # On simule les données du rapport
     chart_data = pd.DataFrame({
         "Sentiment": ["Négatif", "Neutre", "Positif"],
         "Nombre d'avis": [190983, 190983, 190983] 
     })
-    
-    # Graphique rose (si tu as gardé le thème)
-    c = alt.Chart(chart_data).mark_bar().encode(
-        x=alt.X('Sentiment', sort=None),
-        y='Nombre d\'avis',
-        color=alt.Color('Sentiment', scale=alt.Scale(range=["#6D6D6D", "#FFB7B2", "#FF69B4"]), legend=None),
-        tooltip=['Sentiment', 'Nombre d\'avis']
-    )
-    st.altair_chart(c, use_container_width=True)
-    
+    st.bar_chart(chart_data.set_index("Sentiment"))
     st.caption("Le dataset a été rééchantillonné (Undersampling) pour éviter que le modèle ne favorise la classe majoritaire (5 étoiles).")
 
 # ==============================================================================
@@ -336,4 +303,3 @@ with tab_model:
         st.success("📈 Mots Positifs")
         st.write("- **great, love, good, easy, perfect**")
         st.caption("Indiquent une satisfaction émotionnelle forte.")
-
