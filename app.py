@@ -147,52 +147,66 @@ with tab_demo:
                     st.write(f"Contribution des mots à la décision : **{label_text}**")
 
                     try:
-                        # a. Calculer les valeurs SHAP avec TreeExplainer
+                        # a. Calculer les valeurs SHAP
                         explainer = shap.TreeExplainer(model)
                         shap_values = explainer.shap_values(input_array)
                         
-                        # b. Récupérer les valeurs pour la classe prédite (gestion robuste des dimensions)
+                        # --- CORRECTIF ROBUSTE DES DIMENSIONS ---
+                        vals = None
+                        
+                        # Cas 1 : SHAP renvoie une liste (ex: [array_classe0, array_classe1...])
                         if isinstance(shap_values, list):
-                            # Multiclasse : liste de [classe0, classe1, classe2]
-                            vals = shap_values[pred_class][0]
+                            # Si on a bien 3 classes, on prend la bonne
+                            if len(shap_values) > pred_class:
+                                vals = shap_values[pred_class][0]
+                            else:
+                                # Si SHAP ne renvoie qu'un seul tableau (cas fréquent), on prend le seul disponible
+                                vals = shap_values[0][0]
+                                
+                        # Cas 2 : SHAP renvoie un Array Numpy direct
                         else:
-                            # Fallback si le format change
-                            vals = shap_values[pred_class][0] if len(shap_values.shape) > 2 else shap_values[0]
+                            # Si 3 dimensions (samples, features, classes)
+                            if len(shap_values.shape) == 3 and shap_values.shape[2] > pred_class:
+                                vals = shap_values[0, :, pred_class]
+                            # Sinon (cas binaire ou compressé), on prend tout
+                            else:
+                                vals = shap_values[0]
 
+                        # --- SUITE DU GRAPHIQUE ---
+                        
                         # c. Créer un DataFrame (Mot, Impact SHAP)
                         feature_names = vectorizer.get_feature_names_out()
                         df_shap = pd.DataFrame({"Mot": feature_names, "SHAP Value": vals})
                         
-                        # d. Filtrer : On ne garde que les mots présents dans le texte (impact non nul)
-                        df_shap = df_shap[df_shap["SHAP Value"] != 0]
+                        # d. Filtrer : On ne garde que les mots présents (impact non nul)
+                        # Petite sécurité : on enlève les valeurs extrêmement proches de 0
+                        df_shap = df_shap[df_shap["SHAP Value"].abs() > 0.01]
                         
-                        # e. Trier par impact absolu et garder le Top 10
-                        df_shap["Abs_Value"] = df_shap["SHAP Value"].abs()
-                        df_shap_top = df_shap.sort_values(by="Abs_Value", ascending=False).head(10)
-                        
-                        # f. Dessiner le graphique avec Altair (Simple et Joli)
-                        # Barres rouges si impact positif (>0), bleues si négatif (<0)
-                        chart_shap = alt.Chart(df_shap_top).mark_bar().encode(
-                            x=alt.X('SHAP Value', title='Impact sur la décision'),
-                            y=alt.Y('Mot', sort='-x', title='Mots du texte'),
-                            color=alt.condition(
-                                alt.datum["SHAP Value"] > 0,
-                                alt.value("#FF4B4B"),  # Rouge
-                                alt.value("#1E88E5")   # Bleu
-                            ),
-                            tooltip=['Mot', 'SHAP Value']
-                        )
-                        st.altair_chart(chart_shap, use_container_width=True)
-                        st.caption("🟥 Rouge : Mots qui poussent vers ce sentiment | 🟦 Bleu : Mots qui s'y opposent")
+                        if df_shap.empty:
+                            st.info("Aucun mot n'a eu un impact significatif détectable par SHAP.")
+                        else:
+                            # e. Trier par impact absolu et garder le Top 10
+                            df_shap["Abs_Value"] = df_shap["SHAP Value"].abs()
+                            df_shap_top = df_shap.sort_values(by="Abs_Value", ascending=False).head(10)
+                            
+                            # f. Dessiner le graphique
+                            chart_shap = alt.Chart(df_shap_top).mark_bar().encode(
+                                x=alt.X('SHAP Value', title='Impact sur la décision'),
+                                y=alt.Y('Mot', sort='-x', title='Mots du texte'),
+                                color=alt.condition(
+                                    alt.datum["SHAP Value"] > 0,
+                                    alt.value("#FF4B4B"),  # Rouge
+                                    alt.value("#1E88E5")   # Bleu
+                                ),
+                                tooltip=['Mot', 'SHAP Value']
+                            )
+                            st.altair_chart(chart_shap, use_container_width=True)
+                            st.caption("🟥 Rouge : Pousse vers ce sentiment | 🟦 Bleu : Mots qui s'y opposent")
 
                     except Exception as e:
-                        st.warning(f"Le calcul SHAP n'a pas abouti : {e}. Réessayez.")
-
-                    with st.expander("👀 Voir le texte nettoyé"):
-                        st.code(clean_text)
-            else:
-                st.warning("Veuillez entrer du texte.")
-
+                        # En cas d'échec total, on affiche un message discret
+                        st.warning(f"Impossible d'afficher le détail SHAP pour ce texte spécifique.")
+                        st.caption(f"Erreur technique : {e}")
         # --- CSV BULK ---
         st.markdown("---")
         st.subheader("📂 Analyse de masse (Fichier CSV)")
@@ -291,3 +305,4 @@ with tab_model:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
+
