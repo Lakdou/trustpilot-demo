@@ -8,3 +8,4 @@ joblib
 altair
 shap
 matplotlib
+numba
