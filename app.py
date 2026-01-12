@@ -8,7 +8,9 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import warnings
+import altair as alt 
 import shap
+import matplotlib.pyplot as plt
 
 # --- 0. CONFIGURATION ---
 st.set_page_config(
@@ -17,6 +19,7 @@ st.set_page_config(
     layout="wide"
 )
 warnings.filterwarnings("ignore", category=UserWarning)
+st.set_option('deprecation.showPyplotGlobalUse', False) # Masquer l'avertissement Matplotlib
 
 # --- 1. CHARGEMENT DES RESSOURCES (CACHE) ---
 @st.cache_resource
@@ -82,7 +85,7 @@ st.markdown("Application de démonstration pour la prédiction de satisfaction �
 tab_demo, tab_data, tab_model = st.tabs(["🚀 Démo Live", "📊 Jeu de Données", "🤖 Performance Modèle"])
 
 # ==============================================================================
-# ONGLET 1 : DÉMO LIVE (AVEC GRAPHIQUE ROBUSTE)
+# ONGLET 1 : DÉMO LIVE (Avec SHAP dynamique)
 # ==============================================================================
 with tab_demo:
     if model is None:
@@ -105,10 +108,10 @@ with tab_demo:
 
         user_input = st.text_area("Votre commentaire :", value=st.session_state.text_input, height=100)
 
-        # --- PREDICTION ---
+        # --- PREDICTION ET SHAP ---
         if st.button("Lancer l'analyse", type="primary"):
             if user_input.strip():
-                with st.spinner('Analyse et identification des mots-clés...'):
+                with st.spinner('Analyse et interprétabilité en cours...'):
                     # 1. Pipeline
                     clean_text = processing_pipeline(user_input)
                     vec_input = vectorizer.transform([clean_text])
@@ -139,49 +142,35 @@ with tab_demo:
                             color=alt.Color('Sentiment', scale=alt.Scale(domain=["Négatif", "Neutre", "Positif"], range=["#6D6D6D", "#FFB7B2", "#FF69B4"]), legend=None)
                         )
                         st.altair_chart(c, use_container_width=True)
-                    
-                    # 3. INTERPRÉTABILITÉ (MÉTHODE ROBUSTE SANS SHAP)
+
+                    # 3. Graphique SHAP Dynamique
                     st.markdown("---")
-                    st.subheader("🧠 Analyse des mots clés")
-                    st.write(f"Voici les termes détectés qui ont le plus de poids dans la décision :")
+                    st.subheader("🧠 Pourquoi cette décision ? (Analyse SHAP)")
+                    st.write(f"Voici les mots qui ont le plus influencé la prédiction : **{label_text}**")
 
                     try:
-                        # On récupère l'importance globale des features du modèle
-                        feature_importances = model.feature_importances_
+                        explainer = shap.TreeExplainer(model)
+                        shap_values = explainer.shap_values(input_array)
                         feature_names = vectorizer.get_feature_names_out()
-                        
-                        # On regarde quels mots sont présents dans la phrase de l'utilisateur
-                        # On multiplie la présence du mot (TF-IDF) par son importance globale
-                        indices = input_array[0].nonzero()[0]
-                        
-                        if len(indices) > 0:
-                            words_found = []
-                            scores = []
-                            for idx in indices:
-                                words_found.append(feature_names[idx])
-                                # Score = Poids global du mot * sa présence TF-IDF
-                                scores.append(feature_importances[idx] * input_array[0][idx])
-                            
-                            # Création du DataFrame pour le graph
-                            df_impact = pd.DataFrame({"Mot": words_found, "Impact": scores})
-                            df_impact = df_impact.sort_values(by="Impact", ascending=False).head(10) # Top 10
-                            
-                            # Couleur des barres selon le sentiment prédit
-                            bar_color = "#FF4B4B" if pred_class == 0 else "#FFA500" if pred_class == 1 else "#2E8B57"
 
-                            chart_impact = alt.Chart(df_impact).mark_bar(color=bar_color).encode(
-                                x=alt.X('Impact', title='Poids dans la décision'),
-                                y=alt.Y('Mot', sort='-x', title='Mots détectés'),
-                                tooltip=['Mot', 'Impact']
-                            )
-                            st.altair_chart(chart_impact, use_container_width=True)
-                            st.caption("Ces mots ont été reconnus par le modèle comme étant déterminants.")
-                        else:
-                            st.info("Aucun mot-clé significatif détecté dans le vocabulaire du modèle.")
+                        # Génération du graphique
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        shap.plots.bar(
+                            shap.Explanation(
+                                values=shap_values[pred_class][0], 
+                                base_values=explainer.expected_value[pred_class], 
+                                data=input_array[0], 
+                                feature_names=feature_names
+                            ),
+                            max_display=12,
+                            show=False
+                        )
+                        st.pyplot(fig)
+                        st.caption(f"🟥 Rouge : Pousse vers '{label_text}' | 🟦 Bleu : S'y oppose")
 
                     except Exception as e:
-                        st.warning(f"Détail indisponible (Pas assez de données).")
-
+                        st.warning(f"Graphique SHAP non disponible : {e}")
+                    
                     with st.expander("👀 Voir le texte nettoyé"):
                         st.code(clean_text)
             else:
@@ -207,13 +196,13 @@ with tab_demo:
                         mapping = {0: "Négatif", 1: "Neutre", 2: "Positif"}
                         df['Prediction'] = [mapping[p] for p in preds]
                         
-                        st.dataframe(df[[target_col, 'Prediction']], use_container_width=True)
+                        st.dataframe(df[[target_col, 'Prediction']].style.applymap(lambda x: 'background-color: #ffcccc' if x=='Négatif' else 'background-color: #ccffcc' if x=='Positif' else 'background-color: #ffeebb', subset=['Prediction']), use_container_width=True)
                         st.download_button("📥 Télécharger résultats", df.to_csv(index=False).encode('utf-8'), "resultats.csv", "text/csv")
             except Exception as e:
                 st.error(f"Erreur CSV : {e}")
 
 # ==============================================================================
-# ONGLET 2 : JEU DE DONNÉES (Présentation)
+# ONGLET 2 : JEU DE DONNÉES (Slide 6 & Preprocessing)
 # ==============================================================================
 with tab_data:
     st.header("📚 Le Jeu de Données : Amazon Electronics")
@@ -272,6 +261,7 @@ with tab_model:
         columns=["Prédit Négatif", "Prédit Neutre", "Prédit Positif"],
         index=["Réel Négatif", "Réel Neutre", "Réel Positif"]
     )
+    # Affichage sécurisé sans matplotlib requis pour le style
     st.dataframe(confusion_data, use_container_width=True)
     
     st.success("✅ **Observation :** Très bonne détection des avis positifs et négatifs.")
@@ -279,10 +269,9 @@ with tab_model:
     
     st.markdown("---")
     st.subheader("Global Feature Importance")
-    st.write("Mots les plus impactants pour le modèle (Global) :")
+    st.write("Mots les plus impactants pour le modèle :")
     col_feat1, col_feat2 = st.columns(2)
     with col_feat1:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
-
