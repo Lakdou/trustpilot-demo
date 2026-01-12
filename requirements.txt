@@ -7,5 +7,3 @@ nltk
 joblib
 altair
 shap
-matplotlib
-ipython
