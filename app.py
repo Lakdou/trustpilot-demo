@@ -107,11 +107,11 @@ with tab_demo:
 
         user_input = st.text_area("Votre commentaire :", value=st.session_state.text_input, height=100)
 
-        # --- PREDICTION ET SHAP ---
+       # --- PREDICTION ---
         if st.button("Lancer l'analyse", type="primary"):
             if user_input.strip():
-                with st.spinner('Analyse et interprétabilité en cours...'):
-                    # 1. Pipeline
+                with st.spinner('Analyse en cours et génération du SHAP...'):
+                    # 1. Prétraitement et Prédiction
                     clean_text = processing_pipeline(user_input)
                     vec_input = vectorizer.transform([clean_text])
                     input_array = vec_input.toarray()
@@ -123,7 +123,7 @@ with tab_demo:
                     label_text, color = labels[pred_class]
                     confidence = pred_proba[pred_class]
 
-                    # 2. Résultats
+                    # 2. Affichage des résultats (Score et Graphe de probabilités)
                     st.divider()
                     c1, c2 = st.columns([1, 2])
                     
@@ -134,7 +134,10 @@ with tab_demo:
                     
                     with c2:
                         st.markdown("#### Probabilités")
-                        df_chart = pd.DataFrame({"Sentiment": ["Négatif", "Neutre", "Positif"], "Probabilité": pred_proba})
+                        df_chart = pd.DataFrame({
+                            "Sentiment": ["Négatif", "Neutre", "Positif"],
+                            "Probabilité": pred_proba
+                        })
                         c = alt.Chart(df_chart).mark_bar().encode(
                             x=alt.X('Sentiment', sort=None),
                             y='Probabilité',
@@ -142,18 +145,25 @@ with tab_demo:
                         )
                         st.altair_chart(c, use_container_width=True)
 
-                    # 3. Graphique SHAP Dynamique
+                    # 3. INTERPRÉTABILITÉ SHAP (Nouveau bloc)
                     st.markdown("---")
                     st.subheader("🧠 Pourquoi cette décision ? (Analyse SHAP)")
                     st.write(f"Voici les mots qui ont le plus influencé la prédiction : **{label_text}**")
 
                     try:
+                        # Initialisation de l'explainer SHAP pour LightGBM
                         explainer = shap.TreeExplainer(model)
                         shap_values = explainer.shap_values(input_array)
+
+                        # Récupération des noms des mots (features)
                         feature_names = vectorizer.get_feature_names_out()
 
-                        # Génération du graphique
-                        fig, ax = plt.subplots(figsize=(10, 4))
+                        # Création du graphique SHAP local pour la classe prédite
+                        # shap_values[pred_class] car on veut expliquer pourquoi il a choisi CE sentiment
+                        fig, ax = plt.subplots(figsize=(10, 5))
+                        
+                        # On prépare les données pour le graphique en barres
+                        # Les valeurs positives (rouge) poussent vers la classe, négatives (bleu) s'en éloignent
                         shap.plots.bar(
                             shap.Explanation(
                                 values=shap_values[pred_class][0], 
@@ -161,16 +171,17 @@ with tab_demo:
                                 data=input_array[0], 
                                 feature_names=feature_names
                             ),
-                            max_display=12,
+                            max_display=10, # Affiche les 10 mots les plus impactants
                             show=False
                         )
+                        # Affichage dans Streamlit
                         st.pyplot(fig)
-                        st.caption(f"🟥 Rouge : Pousse vers '{label_text}' | 🟦 Bleu : S'y oppose")
+                        st.caption("🟥 Rouge : Mots poussant vers ce sentiment | 🟦 Bleu : Mots s'y opposant")
 
                     except Exception as e:
-                        st.warning(f"Graphique SHAP non disponible : {e}")
+                        st.warning(f"Impossible de générer le graphique SHAP : {e}")
                     
-                    with st.expander("👀 Voir le texte nettoyé"):
+                    with st.expander("👀 Voir le texte nettoyé (Lemmatisation)"):
                         st.code(clean_text)
             else:
                 st.warning("Veuillez entrer du texte.")
@@ -274,4 +285,5 @@ with tab_model:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
+
 
