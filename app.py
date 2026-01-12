@@ -19,7 +19,6 @@ st.set_page_config(
     layout="wide"
 )
 warnings.filterwarnings("ignore", category=UserWarning)
-st.set_option('deprecation.showPyplotGlobalUse', False) # Masquer l'avertissement Matplotlib
 
 # --- 1. CHARGEMENT DES RESSOURCES (CACHE) ---
 @st.cache_resource
@@ -275,3 +274,4 @@ with tab_model:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
+
