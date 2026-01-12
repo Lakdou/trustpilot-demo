@@ -107,7 +107,7 @@ with tab_demo:
 
         user_input = st.text_area("Votre commentaire :", value=st.session_state.text_input, height=100)
 
-        # --- PREDICTION ET SHAP ---
+       # --- PREDICTION ET SHAP ---
         if st.button("Lancer l'analyse", type="primary"):
             if user_input.strip():
                 with st.spinner('Analyse et interprétabilité en cours...'):
@@ -142,7 +142,7 @@ with tab_demo:
                         )
                         st.altair_chart(c, use_container_width=True)
 
-                    # 3. Graphique SHAP Dynamique
+                    # 3. Graphique SHAP Dynamique (CORRIGÉ)
                     st.markdown("---")
                     st.subheader("🧠 Pourquoi cette décision ? (Analyse SHAP)")
                     st.write(f"Voici les mots qui ont le plus influencé la prédiction : **{label_text}**")
@@ -152,12 +152,32 @@ with tab_demo:
                         shap_values = explainer.shap_values(input_array)
                         feature_names = vectorizer.get_feature_names_out()
 
+                        # --- FIX ROBUSTE POUR LES DIMENSIONS ---
+                        # 1. Gestion de expected_value (parfois scalaire, parfois liste)
+                        base_val = explainer.expected_value
+                        if isinstance(base_val, list) or (isinstance(base_val, np.ndarray) and len(base_val) > 1):
+                            # Si on a une liste de valeurs (une par classe), on prend celle de la classe prédite
+                            base_val = base_val[pred_class]
+                        elif isinstance(base_val, np.ndarray) and len(base_val) == 1:
+                            base_val = base_val[0]
+                        
+                        # 2. Gestion de shap_values (parfois liste d'arrays, parfois array unique)
+                        if isinstance(shap_values, list):
+                            # Cas standard multiclasse : liste de 3 arrays
+                            shap_val = shap_values[pred_class][0]
+                        elif len(shap_values.shape) == 3:
+                            # Cas array 3D (samples, features, classes)
+                            shap_val = shap_values[0, :, pred_class]
+                        else:
+                            # Cas fallback (binaire ou autre structure)
+                            shap_val = shap_values[0]
+
                         # Génération du graphique
                         fig, ax = plt.subplots(figsize=(10, 4))
                         shap.plots.bar(
                             shap.Explanation(
-                                values=shap_values[pred_class][0], 
-                                base_values=explainer.expected_value[pred_class], 
+                                values=shap_val, 
+                                base_values=base_val, 
                                 data=input_array[0], 
                                 feature_names=feature_names
                             ),
@@ -274,4 +294,5 @@ with tab_model:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
+
 
