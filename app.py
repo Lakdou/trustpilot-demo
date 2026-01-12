@@ -9,6 +9,8 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import warnings
 import altair as alt 
+import shap
+import matplotlib.pyplot as plt
 
 # --- 0. CONFIGURATION ---
 st.set_page_config(
@@ -17,6 +19,7 @@ st.set_page_config(
     layout="wide"
 )
 warnings.filterwarnings("ignore", category=UserWarning)
+st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # --- 1. CHARGEMENT DES RESSOURCES (CACHE) ---
 @st.cache_resource
@@ -82,7 +85,7 @@ st.markdown("Application de démonstration pour la prédiction de satisfaction �
 tab_demo, tab_data, tab_model = st.tabs(["🚀 Démo Live", "📊 Jeu de Données", "🤖 Performance Modèle"])
 
 # ==============================================================================
-# ONGLET 1 : DÉMO LIVE (STABLE)
+# ONGLET 1 : DÉMO LIVE (AVEC SHAP MANUEL)
 # ==============================================================================
 with tab_demo:
     if model is None:
@@ -108,7 +111,7 @@ with tab_demo:
         # --- PREDICTION ---
         if st.button("Lancer l'analyse", type="primary"):
             if user_input.strip():
-                with st.spinner('Analyse en cours...'):
+                with st.spinner('Analyse et interprétabilité en cours...'):
                     # 1. Pipeline
                     clean_text = processing_pipeline(user_input)
                     vec_input = vectorizer.transform([clean_text])
@@ -140,6 +143,49 @@ with tab_demo:
                         )
                         st.altair_chart(c, use_container_width=True)
                     
+                    # 3. SHAP MANUEL (EXTRACTION)
+                    st.markdown("---")
+                    st.subheader("🧠 Pourquoi cette décision ? (Analyse SHAP)")
+                    st.write(f"Mots ayant le plus influencé la classe : **{label_text}**")
+
+                    try:
+                        # a. Calcul des valeurs
+                        explainer = shap.TreeExplainer(model)
+                        shap_values = explainer.shap_values(input_array)
+                        
+                        # b. Récupération des bonnes valeurs selon le format (Liste ou Array)
+                        if isinstance(shap_values, list):
+                            # Multiclasse : liste de tableaux
+                            vals = shap_values[pred_class][0]
+                        else:
+                            # Binaire ou format compact
+                            vals = shap_values[0]
+                            
+                        # c. Création d'un DataFrame temporaire pour trier
+                        feature_names = vectorizer.get_feature_names_out()
+                        df_shap = pd.DataFrame({
+                            "Mot": feature_names,
+                            "Impact": vals
+                        })
+                        
+                        # d. On garde les mots avec le plus gros impact (positif ou négatif)
+                        df_shap['Abs_Impact'] = df_shap['Impact'].abs()
+                        df_sorted = df_shap.sort_values(by='Abs_Impact', ascending=False).head(10)
+                        df_sorted = df_sorted.sort_values(by='Impact', ascending=True) # Pour l'affichage graphique
+
+                        # e. Graphique Matplotlib Simple
+                        fig, ax = plt.subplots(figsize=(8, 4))
+                        colors = ['#FF4B4B' if x > 0 else '#1E88E5' for x in df_sorted['Impact']]
+                        ax.barh(df_sorted['Mot'], df_sorted['Impact'], color=colors)
+                        ax.set_xlabel("Impact sur la décision (SHAP Value)")
+                        ax.set_title("Top 10 des mots impactants")
+                        st.pyplot(fig)
+                        
+                        st.caption("🟥 Rouge : Mots poussant vers ce sentiment | 🟦 Bleu : Mots s'y opposant")
+
+                    except Exception as e:
+                        st.warning(f"Impossible de générer le graphique SHAP : {e}")
+
                     with st.expander("👀 Voir le texte nettoyé"):
                         st.code(clean_text)
             else:
