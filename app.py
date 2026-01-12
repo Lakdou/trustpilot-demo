@@ -8,7 +8,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import warnings
-import altair as alt 
+import shap
 
 # --- 0. CONFIGURATION ---
 st.set_page_config(
@@ -285,3 +285,4 @@ with tab_model:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
+
