@@ -4,5 +4,7 @@ numpy
 scikit-learn
 lightgbm
 nltk
-matplotlib
 joblib
+altair
+shap
+matplotlib
