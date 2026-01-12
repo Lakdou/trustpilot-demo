@@ -6,3 +6,5 @@ lightgbm
 nltk
 joblib
 altair
+shap
+matplotlib
