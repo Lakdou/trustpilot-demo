@@ -151,39 +151,35 @@ with tab_demo:
                         explainer = shap.TreeExplainer(model)
                         shap_values = explainer.shap_values(input_array)
                         
-                        # --- CORRECTIF ROBUSTE DES DIMENSIONS ---
+                        # --- GESTION ROBUSTE DES DIMENSIONS ---
                         vals = None
-                        
-                        # Cas 1 : SHAP renvoie une liste (ex: [array_classe0, array_classe1...])
                         if isinstance(shap_values, list):
-                            # Si on a bien 3 classes, on prend la bonne
                             if len(shap_values) > pred_class:
                                 vals = shap_values[pred_class][0]
                             else:
-                                # Si SHAP ne renvoie qu'un seul tableau (cas fréquent), on prend le seul disponible
                                 vals = shap_values[0][0]
-                                
-                        # Cas 2 : SHAP renvoie un Array Numpy direct
                         else:
-                            # Si 3 dimensions (samples, features, classes)
                             if len(shap_values.shape) == 3 and shap_values.shape[2] > pred_class:
                                 vals = shap_values[0, :, pred_class]
-                            # Sinon (cas binaire ou compressé), on prend tout
                             else:
                                 vals = shap_values[0]
 
                         # --- SUITE DU GRAPHIQUE ---
-                        
-                        # c. Créer un DataFrame (Mot, Impact SHAP)
                         feature_names = vectorizer.get_feature_names_out()
-                        df_shap = pd.DataFrame({"Mot": feature_names, "SHAP Value": vals})
                         
-                        # d. Filtrer : On ne garde que les mots présents (impact non nul)
-                        # Petite sécurité : on enlève les valeurs extrêmement proches de 0
-                        df_shap = df_shap[df_shap["SHAP Value"].abs() > 0.01]
+                        # Création du DataFrame complet
+                        df_shap = pd.DataFrame({
+                            "Mot": feature_names,
+                            "SHAP Value": vals,
+                            "TFIDF": input_array[0] # On récupère aussi la présence du mot (TF-IDF)
+                        })
+                        
+                        # --- LE FILTRE MAGIQUE ICI ---
+                        # On ne garde que les mots qui sont VRAIMENT dans la phrase (TFIDF > 0)
+                        df_shap = df_shap[df_shap["TFIDF"] > 0]
                         
                         if df_shap.empty:
-                            st.info("Aucun mot n'a eu un impact significatif détectable par SHAP.")
+                            st.info("Aucun mot-clé connu n'a été détecté dans ce texte.")
                         else:
                             # e. Trier par impact absolu et garder le Top 10
                             df_shap["Abs_Value"] = df_shap["SHAP Value"].abs()
@@ -192,7 +188,7 @@ with tab_demo:
                             # f. Dessiner le graphique
                             chart_shap = alt.Chart(df_shap_top).mark_bar().encode(
                                 x=alt.X('SHAP Value', title='Impact sur la décision'),
-                                y=alt.Y('Mot', sort='-x', title='Mots du texte'),
+                                y=alt.Y('Mot', sort='-x', title='Mots détectés'),
                                 color=alt.condition(
                                     alt.datum["SHAP Value"] > 0,
                                     alt.value("#FF4B4B"),  # Rouge
@@ -201,7 +197,10 @@ with tab_demo:
                                 tooltip=['Mot', 'SHAP Value']
                             )
                             st.altair_chart(chart_shap, use_container_width=True)
-                            st.caption("🟥 Rouge : Pousse vers ce sentiment | 🟦 Bleu : Mots qui s'y opposent")
+                            st.caption("🟥 Rouge : Pousse vers ce sentiment | 🟦 Bleu : S'y oppose")
+
+                    except Exception as e:
+                        st.warning(f"Impossible d'afficher le détail SHAP : {e}")
 
                     except Exception as e:
                         # En cas d'échec total, on affiche un message discret
@@ -305,4 +304,5 @@ with tab_model:
         st.error("📉 **Négatif** : bad, poor, waste, return, money")
     with col_feat2:
         st.success("📈 **Positif** : great, love, good, easy, perfect")
+
 
